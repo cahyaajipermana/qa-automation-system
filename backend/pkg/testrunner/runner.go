@@ -154,6 +154,8 @@ func (r *BrowserStackRunner) TakeScreenshot() (string, error) {
 
 // LogTestStep logs a test step
 func (r *BrowserStackRunner) LogTestStep(step string) error {
+	return nil
+
 	// Create logs directory if it doesn't exist
 	if err := os.MkdirAll("logs", 0755); err != nil {
 		return fmt.Errorf("failed to create logs directory: %v", err)
@@ -338,14 +340,16 @@ func (r *BrowserStackRunner) NavigateToOpenChat(siteName string) error {
 		return fmt.Errorf("driver not initialized")
 	}
 
-	chatRestID := "dcf0c0b6-4367-11f0-8f01-0242ac14000c"
+	// chatRestID := "dcf0c0b6-4367-11f0-8f01-0242ac14000c"
+	chatRestID := "8f633616-4491-11f0-bab9-0242ac14000c"
 
 	if siteName == "hothinge.com" {
 		chatRestID = "e69a7e58-4485-11f0-a505-0242ac14000c"
 	}
 
 	if siteName == "shorts.senti.live" {
-		chatRestID = "3510e4d8-4368-11f0-8fbc-0242ac14000c"
+		// chatRestID = "3510e4d8-4368-11f0-8fbc-0242ac14000c"
+		chatRestID = "12c1e801-4492-11f0-bbe9-0242ac14000c"
 	}
 
 	// Navigate to chat rest page
@@ -753,7 +757,7 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			if err := runner.LogTestStep(fmt.Sprintf("Keeping %s session alive for 10 seconds", browserType)); err != nil {
 				log.Printf("Warning: Failed to log session wait for %s: %v", browserType, err)
 			}
-			time.Sleep(10 * time.Second)
+			time.Sleep(20 * time.Second)
 
 			// Calculate duration
 			duration := time.Since(startTime)
