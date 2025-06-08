@@ -338,10 +338,10 @@ func (r *BrowserStackRunner) NavigateToOpenChat(siteName string) error {
 		return fmt.Errorf("driver not initialized")
 	}
 
-	chatRestID := "ec0a3d76-4367-11f0-8f24-0242ac14000c"
+	chatRestID := "dcf0c0b6-4367-11f0-8f01-0242ac14000c"
 
 	if siteName == "hothinge.com" {
-		chatRestID = "b4ff4a80-4367-11f0-8ec7-0242ac14000c"
+		chatRestID = "e69a7e58-4485-11f0-a505-0242ac14000c"
 	}
 
 	if siteName == "shorts.senti.live" {
