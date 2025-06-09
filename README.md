@@ -45,12 +45,22 @@ DB_USER=your_mysql_username
 DB_PASSWORD=your_mysql_password
 DB_NAME=qa_automation
 
-# Server Configuration
-PORT=8080
-
 # BrowserStack Configuration
 BROWSERSTACK_USERNAME=your_browserstack_username
 BROWSERSTACK_ACCESS_KEY=your_browserstack_access_key
+
+# Account Credentials
+SENTI_EMAIL=
+SENTI_PASSWORD=
+
+# Senti Live Chat Rest ID
+SENTI_CHAT_REST_ID=
+
+# Shorts Senti Live Chat Rest ID
+SHORTS_SENTI_CHAT_REST_ID=
+
+# Hothinge Chat Rest ID
+HOTHINGE_CHAT_REST_ID=
 ```
 
 3. Install Go dependencies:

@@ -293,7 +293,7 @@ func (r *BrowserStackRunner) NavigateToLoginPage(siteName string) error {
 		return fmt.Errorf("failed to click 'Or, Login' button: %v", err)
 	}
 
-	// Wait for login to complete and page to be ready
+	// Wait for login page to be ready
 	time.Sleep(2 * time.Second)
 
 	// Verify we're on the login page
@@ -319,7 +319,7 @@ func (r *BrowserStackRunner) NavigateToChatPage(siteName string) error {
 		return fmt.Errorf("failed to navigate to chat page: %v", err)
 	}
 
-	// Wait for page to load and be ready
+	// Wait for chat page to load and be ready
 	time.Sleep(3 * time.Second)
 
 	// Verify we're on the chat page
@@ -340,16 +340,14 @@ func (r *BrowserStackRunner) NavigateToOpenChat(siteName string) error {
 		return fmt.Errorf("driver not initialized")
 	}
 
-	// chatRestID := "dcf0c0b6-4367-11f0-8f01-0242ac14000c"
-	chatRestID := "8f633616-4491-11f0-bab9-0242ac14000c"
+	chatRestID := os.Getenv("SENTI_CHAT_REST_ID")
 
 	if siteName == "hothinge.com" {
-		chatRestID = "e69a7e58-4485-11f0-a505-0242ac14000c"
+		chatRestID = os.Getenv("SHORTS_SENTI_CHAT_REST_ID")
 	}
 
 	if siteName == "shorts.senti.live" {
-		// chatRestID = "3510e4d8-4368-11f0-8fbc-0242ac14000c"
-		chatRestID = "12c1e801-4492-11f0-bbe9-0242ac14000c"
+		chatRestID = os.Getenv("HOTHINGE_CHAT_REST_ID")
 	}
 
 	// Navigate to chat rest page
@@ -357,7 +355,7 @@ func (r *BrowserStackRunner) NavigateToOpenChat(siteName string) error {
 		return fmt.Errorf("failed to navigate to chat rest page: %v", err)
 	}
 
-	// Wait for the page to load
+	// Wait for the open chat page to load
 	time.Sleep(5 * time.Second)
 
 	// Verify we're on the chat rest page
@@ -376,6 +374,16 @@ func (r *BrowserStackRunner) NavigateToOpenChat(siteName string) error {
 func (r *BrowserStackRunner) SendingMessageToChat(siteName string) error {
 	if r.driver == nil {
 		return fmt.Errorf("driver not initialized")
+	}
+
+	chatRestID := os.Getenv("SENTI_CHAT_REST_ID")
+
+	if siteName == "hothinge.com" {
+		chatRestID = os.Getenv("SHORTS_SENTI_CHAT_REST_ID")
+	}
+
+	if siteName == "shorts.senti.live" {
+		chatRestID = os.Getenv("HOTHINGE_CHAT_REST_ID")
 	}
 
 	// Find and fill message field
@@ -400,15 +408,15 @@ func (r *BrowserStackRunner) SendingMessageToChat(siteName string) error {
 	}
 
 	// Wait for send chat to complete and page to be ready
-	time.Sleep(5 * time.Second)
+	time.Sleep(20 * time.Second)
 
-	// Verify login success by checking if we're still on the login page
+	// Verify we're on the chat rest page
 	currentURL, err := r.driver.CurrentURL()
 	if err != nil {
 		return fmt.Errorf("failed to get current URL: %v", err)
 	}
-	if currentURL == "https://" + siteName + "/chat" {
-		return fmt.Errorf("login failed: still on login page")
+	if currentURL != "https://" + siteName + "/chat-rest/" + chatRestID {
+		return fmt.Errorf("navigation failed: not on chat rest page, current URL: %s", currentURL)
 	}
 
 	return nil
@@ -757,7 +765,7 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			if err := runner.LogTestStep(fmt.Sprintf("Keeping %s session alive for 10 seconds", browserType)); err != nil {
 				log.Printf("Warning: Failed to log session wait for %s: %v", browserType, err)
 			}
-			time.Sleep(20 * time.Second)
+			time.Sleep(5 * time.Second)
 
 			// Calculate duration
 			duration := time.Since(startTime)
