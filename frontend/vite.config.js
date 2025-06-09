@@ -12,6 +12,9 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       }
-    }
+    },
+    allowedHosts: [
+      "qa-automation.cahyaap.my.id",
+    ],
   }
 })
