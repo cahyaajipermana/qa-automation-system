@@ -92,14 +92,18 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		// Execute migration
 		_, err = tx.Exec(content)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				return fmt.Errorf("failed to execute migration: %v (rollback error: %v)", err, rbErr)
+			}
 			return fmt.Errorf("failed to execute migration %s: %v", file.Name(), err)
 		}
 
 		// Record migration
 		_, err = tx.Exec("INSERT INTO migrations (version, name) VALUES (?, ?)", version, file.Name())
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				return fmt.Errorf("failed to record migration %s: %v (rollback error: %v)", file.Name(), err, rbErr)
+			}
 			return fmt.Errorf("failed to record migration %s: %v", file.Name(), err)
 		}
 
@@ -140,14 +144,18 @@ func RollbackMigrations(db *sql.DB, migrationsDir string) error {
 	// Execute rollback
 	_, err = tx.Exec(content)
 	if err != nil {
-		tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to execute rollback %s: %v (rollback error: %v)", downFile, err, rbErr)
+		}
 		return fmt.Errorf("failed to execute rollback %s: %v", downFile, err)
 	}
 
 	// Remove migration record
 	_, err = tx.Exec("DELETE FROM migrations WHERE version = ?", version)
 	if err != nil {
-		tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to remove migration record: %v (rollback error: %v)", err, rbErr)
+		}
 		return fmt.Errorf("failed to remove migration record: %v", err)
 	}
 
@@ -163,7 +171,11 @@ func RollbackMigrations(db *sql.DB, migrationsDir string) error {
 // getVersionFromFilename extracts the version number from a migration filename
 func getVersionFromFilename(filename string) int {
 	var version int
-	fmt.Sscanf(filename, "%d_", &version)
+	_, err := fmt.Sscanf(filename, "%d_", &version)
+	if err != nil {
+		// If we can't parse the version, return 0 to indicate an invalid migration
+		return 0
+	}
 	return version
 }
 
