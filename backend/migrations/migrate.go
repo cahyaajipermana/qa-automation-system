@@ -4,14 +4,17 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
+
+// migrationsDir is the directory containing migration files
+var migrationsDir = filepath.Join("migrations")
 
 // Migration represents a database migration
 type Migration struct {
