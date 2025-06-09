@@ -380,11 +380,11 @@ func (r *BrowserStackRunner) SendingMessageToChat(siteName string) error {
 	chatRestID := os.Getenv("SENTI_CHAT_REST_ID")
 
 	if siteName == "hothinge.com" {
-		chatRestID = os.Getenv("SHORTS_SENTI_CHAT_REST_ID")
+		chatRestID = os.Getenv("HOTHINGE_CHAT_REST_ID")
 	}
 
 	if siteName == "shorts.senti.live" {
-		chatRestID = os.Getenv("HOTHINGE_CHAT_REST_ID")
+		chatRestID = os.Getenv("SHORTS_SENTI_CHAT_REST_ID")
 	}
 
 	// Find and fill message field
