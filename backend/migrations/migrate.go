@@ -3,10 +3,11 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"io"
+	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -36,7 +37,7 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	}
 
 	// Get all migration files
-	files, err := ioutil.ReadDir(migrationsDir)
+	files, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %v", err)
 	}
@@ -74,7 +75,7 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		}
 
 		// Read migration file
-		content, err := ioutil.ReadFile(filepath.Join(migrationsDir, file.Name()))
+		content, err := readMigrationFile(filepath.Join(migrationsDir, file.Name()))
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %v", file.Name(), err)
 		}
@@ -86,7 +87,7 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		}
 
 		// Execute migration
-		_, err = tx.Exec(string(content))
+		_, err = tx.Exec(content)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to execute migration %s: %v", file.Name(), err)
@@ -122,7 +123,7 @@ func RollbackMigrations(db *sql.DB, migrationsDir string) error {
 
 	// Read down migration file
 	downFile := strings.Replace(name, ".up.sql", ".down.sql", 1)
-	content, err := ioutil.ReadFile(filepath.Join(migrationsDir, downFile))
+	content, err := readMigrationFile(filepath.Join(migrationsDir, downFile))
 	if err != nil {
 		return fmt.Errorf("failed to read rollback file %s: %v", downFile, err)
 	}
@@ -134,7 +135,7 @@ func RollbackMigrations(db *sql.DB, migrationsDir string) error {
 	}
 
 	// Execute rollback
-	_, err = tx.Exec(string(content))
+	_, err = tx.Exec(content)
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to execute rollback %s: %v", downFile, err)
@@ -161,4 +162,171 @@ func getVersionFromFilename(filename string) int {
 	var version int
 	fmt.Sscanf(filename, "%d_", &version)
 	return version
+}
+
+// readMigrationFile reads the content of a migration file
+func readMigrationFile(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to open migration file: %v", err)
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to read migration file: %v", err)
+	}
+
+	return string(content), nil
+}
+
+// getMigrationVersion extracts the version number from a migration filename
+func getMigrationVersion(filename string) int {
+	var version int
+	_, err := fmt.Sscanf(filename, "%d_", &version)
+	if err != nil {
+		// If we can't parse the version, return 0 to indicate an invalid migration
+		return 0
+	}
+	return version
+}
+
+// MigrateUp applies all pending migrations
+func MigrateUp(db *sql.DB) error {
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+
+	// Get all migration files
+	files, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to read migrations directory: %v (rollback error: %v)", err, rbErr)
+		}
+		return fmt.Errorf("failed to read migrations directory: %v", err)
+	}
+
+	// Sort files by version
+	var migrations []struct {
+		name    string
+		version int
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".up.sql") {
+			version := getMigrationVersion(file.Name())
+			if version == 0 {
+				if rbErr := tx.Rollback(); rbErr != nil {
+					return fmt.Errorf("invalid migration filename %s (rollback error: %v)", file.Name(), rbErr)
+				}
+				return fmt.Errorf("invalid migration filename %s", file.Name())
+			}
+			migrations = append(migrations, struct {
+				name    string
+				version int
+			}{file.Name(), version})
+		}
+	}
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].version < migrations[j].version
+	})
+
+	// Apply migrations
+	for _, migration := range migrations {
+		// Read migration file
+		content, err := readMigrationFile(filepath.Join(migrationsDir, migration.name))
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				return fmt.Errorf("failed to read migration file %s: %v (rollback error: %v)", migration.name, err, rbErr)
+			}
+			return fmt.Errorf("failed to read migration file %s: %v", migration.name, err)
+		}
+
+		// Execute migration
+		_, err = tx.Exec(content)
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				return fmt.Errorf("failed to execute migration %s: %v (rollback error: %v)", migration.name, err, rbErr)
+			}
+			return fmt.Errorf("failed to execute migration %s: %v", migration.name, err)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to commit transaction: %v (rollback error: %v)", err, rbErr)
+		}
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
+}
+
+// MigrateDown rolls back the last migration
+func MigrateDown(db *sql.DB) error {
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+
+	// Get all migration files
+	files, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to read migrations directory: %v (rollback error: %v)", err, rbErr)
+		}
+		return fmt.Errorf("failed to read migrations directory: %v", err)
+	}
+
+	// Find the latest migration
+	var latestMigration string
+	var latestVersion int
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".up.sql") {
+			version := getMigrationVersion(file.Name())
+			if version > latestVersion {
+				latestVersion = version
+				latestMigration = file.Name()
+			}
+		}
+	}
+
+	if latestMigration == "" {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("no migrations found (rollback error: %v)", rbErr)
+		}
+		return fmt.Errorf("no migrations found")
+	}
+
+	// Read down migration file
+	downFile := strings.Replace(latestMigration, ".up.sql", ".down.sql", 1)
+	content, err := readMigrationFile(filepath.Join(migrationsDir, downFile))
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to read rollback file %s: %v (rollback error: %v)", downFile, err, rbErr)
+		}
+		return fmt.Errorf("failed to read rollback file %s: %v", downFile, err)
+	}
+
+	// Execute rollback
+	_, err = tx.Exec(content)
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to execute rollback %s: %v (rollback error: %v)", downFile, err, rbErr)
+		}
+		return fmt.Errorf("failed to execute rollback %s: %v", downFile, err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("failed to commit transaction: %v (rollback error: %v)", err, rbErr)
+		}
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
 } 

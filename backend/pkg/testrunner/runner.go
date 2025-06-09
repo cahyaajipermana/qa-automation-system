@@ -117,11 +117,14 @@ func (r *BrowserStackRunner) Initialize(browserType string) error {
 	return fmt.Errorf("unsupported browser type: %s", browserType)
 }
 
-// Close terminates the browser session
-func (r *BrowserStackRunner) Close() {
+// Close closes the WebDriver session
+func (r *BrowserStackRunner) Close() error {
 	if r.driver != nil {
-		r.driver.Quit()
+		if err := r.driver.Quit(); err != nil {
+			return fmt.Errorf("failed to quit WebDriver: %v", err)
+		}
 	}
+	return nil
 }
 
 // TakeScreenshot captures the current screen
@@ -154,21 +157,19 @@ func (r *BrowserStackRunner) TakeScreenshot() (string, error) {
 
 // LogTestStep logs a test step
 func (r *BrowserStackRunner) LogTestStep(step string) error {
-	return nil
-
 	// Create logs directory if it doesn't exist
 	if err := os.MkdirAll("logs", 0755); err != nil {
 		return fmt.Errorf("failed to create logs directory: %v", err)
 	}
 
-	// Generate log filename with timestamp
-	filename := fmt.Sprintf("logs/test_%s.log", time.Now().Format("20060102_150405"))
+	// // Generate log filename with timestamp
+	// filename := fmt.Sprintf("logs/test_%s.log", time.Now().Format("20060102_150405"))
 
-	// Append log entry
-	logEntry := fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), step)
-	if err := os.WriteFile(filename, []byte(logEntry), 0644); err != nil {
-		return fmt.Errorf("failed to write log: %v", err)
-	}
+	// // Append log entry
+	// logEntry := fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), step)
+	// if err := os.WriteFile(filename, []byte(logEntry), 0644); err != nil {
+	// 	return fmt.Errorf("failed to write log: %v", err)
+	// }
 
 	return nil
 }
@@ -496,23 +497,23 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 
 			// Take screenshot before login
 			beforeLoginScreenshot, err := runner.TakeScreenshot()
-			// if err != nil {
-			// 	log.Printf("Warning: Failed to take before login screenshot for %s: %v", browserType, err)
-			// } else {
-			// 	log.Printf("Before login screenshot saved for %s: %s", browserType, beforeLoginScreenshot)
-			// 	if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken before login: %s", beforeLoginScreenshot)); err != nil {
-			// 		log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-			// 	}
-			// 	// Store screenshot in result details
-			// 	resultDetail := models.ResultDetail{
-			// 		ResultID:   result.ID,
-			// 		Screenshot: beforeLoginScreenshot,
-			// 		Description: "Screenshot before login",
-			// 	}
-			// 	if err := db.Create(&resultDetail).Error; err != nil {
-			// 		log.Printf("Warning: Failed to store before login screenshot for %s: %v", browserType, err)
-			// 	}
-			// }
+			if err != nil {
+				log.Printf("Warning: Failed to take before login screenshot for %s: %v", browserType, err)
+			} else {
+				log.Printf("Before login screenshot saved for %s: %s", browserType, beforeLoginScreenshot)
+				if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken before login: %s", beforeLoginScreenshot)); err != nil {
+					log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
+				}
+				// Store screenshot in result details
+				// resultDetail := models.ResultDetail{
+				// 	ResultID:   result.ID,
+				// 	Screenshot: beforeLoginScreenshot,
+				// 	Description: "Screenshot before login",
+				// }
+				// if err := db.Create(&resultDetail).Error; err != nil {
+				// 	log.Printf("Warning: Failed to store before login screenshot for %s: %v", browserType, err)
+				// }
+			}
 
 			// Navigate to login page
 			log.Printf("Navigating to login page using %s...", browserType)
