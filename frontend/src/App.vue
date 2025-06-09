@@ -11,6 +11,7 @@ const isLoading = ref(true)
 const error = ref(null)
 const showNewTestModal = ref(false)
 const expandedResults = ref(new Set())
+const apiUrl = ref(import.meta.env.VITE_API_URL)
 
 // Pagination state
 const pagination = ref({
@@ -457,7 +458,7 @@ onMounted(() => {
                                     <template v-if="result?.details?.length > 0">
                                         <div v-for="detail in result.details" :key="detail.id" class="mb-6">
                                             <div class="text-sm font-medium text-gray-700 mb-2">{{ detail.description || 'N/A' }}</div>
-                                            <img :src="`http://localhost:8080/${detail.screenshot}`" class="max-w-lg rounded-lg shadow-md" />
+                                            <img :src="`${apiUrl}/${detail.screenshot}`" class="max-w-lg rounded-lg shadow-md" />
                                         </div>
                                     </template>
                                     <div v-else class="text-sm text-gray-500">
