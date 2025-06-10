@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 	"qa-automation-system/backend/config"
 	"qa-automation-system/backend/models"
@@ -334,4 +337,154 @@ func (rc *ResultController) DeleteResultDetail(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Result detail deleted successfully"})
+}
+
+// ExportResults exports test results to Excel
+func (rc *ResultController) ExportResults(c *gin.Context) {
+	var results []models.Result
+	if err := rc.DB.Preload("Site").Preload("Device").Preload("Feature").Order("created_at DESC").Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("Found %d results to export\n", len(results))
+
+	// Create new Excel file
+	f := excelize.NewFile()
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	// Create a new sheet
+	sheet := "Test Results"
+	index, err := f.NewSheet(sheet)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1") // Delete default sheet
+
+	// Create headers
+	headers := []string{
+		"Created At",
+		"Status",
+		"Site Name",
+		"Browser",
+		"Device Name",
+		"Feature Name",
+		"Duration (s)",
+		"Error Log",
+	}
+
+	// Set headers with style
+	style, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold: true,
+			Size: 12,
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#E0E0E0"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Set headers
+	for i, header := range headers {
+		cell := fmt.Sprintf("%c1", 'A'+i)
+		if err := f.SetCellValue(sheet, cell, header); err != nil {
+			fmt.Printf("Error setting header %s: %v\n", header, err)
+		}
+		if err := f.SetCellStyle(sheet, cell, cell, style); err != nil {
+			fmt.Printf("Error setting style for header %s: %v\n", header, err)
+		}
+	}
+
+	// Add data
+	for i, result := range results {
+		row := i + 2
+		fmt.Printf("Processing result %d: ID=%d, Status=%s\n", i+1, result.ID, result.Status)
+
+		// Format created_at
+		createdAt := result.CreatedAt.Format("2006-01-02 15:04:05")
+		
+		// Get related data
+		siteName := "N/A"
+		if result.SiteID != 0 {
+			siteName = result.Site.Name
+		}
+
+		deviceName := "N/A"
+		if result.DeviceID != 0 {
+			deviceName = result.Device.Name
+		}
+
+		featureName := "N/A"
+		if result.FeatureID != 0 {
+			featureName = result.Feature.Name
+		}
+
+		// Set values
+		cells := map[string]interface{}{
+			fmt.Sprintf("A%d", row): createdAt,
+			fmt.Sprintf("B%d", row): result.Status,
+			fmt.Sprintf("C%d", row): siteName,
+			fmt.Sprintf("D%d", row): result.Browser,
+			fmt.Sprintf("E%d", row): deviceName,
+			fmt.Sprintf("F%d", row): featureName,
+			fmt.Sprintf("G%d", row): result.Duration,
+			fmt.Sprintf("H%d", row): result.ErrorLog,
+		}
+
+		for cell, value := range cells {
+			if err := f.SetCellValue(sheet, cell, value); err != nil {
+				fmt.Printf("Error setting cell %s: %v\n", cell, err)
+			}
+		}
+	}
+
+	// Set column widths
+	widths := map[string]float64{
+		"A": 20, // Created At
+		"B": 10, // Status
+		"C": 20, // Site Name
+		"D": 15, // Browser
+		"E": 20, // Device Name
+		"F": 20, // Feature Name
+		"G": 15, // Duration
+		"H": 50, // Error Log
+	}
+
+	for col, width := range widths {
+		if err := f.SetColWidth(sheet, col, col, width); err != nil {
+			fmt.Printf("Error setting column width for %s: %v\n", col, err)
+		}
+	}
+
+	// Generate filename with timestamp
+	filename := fmt.Sprintf("test_results_%s.xlsx", time.Now().Format("20060102_150405"))
+
+	// Set response headers
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+	// Write file to response
+	if err := f.Write(c.Writer); err != nil {
+		fmt.Printf("Error writing file: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Println("Export completed successfully")
 } 

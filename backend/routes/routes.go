@@ -65,8 +65,9 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 		results := api.Group("/results")
 		{
 			results.GET("", resultController.GetResults)
-			results.POST("", resultController.Create)
+			results.GET("/export", resultController.ExportResults)
 			results.GET("/:id", resultController.GetByID)
+			results.POST("", resultController.Create)
 			results.PUT("/:id", resultController.Update)
 			results.DELETE("/:id", resultController.Delete)
 			results.GET("/:id/details", resultController.GetResultDetails)

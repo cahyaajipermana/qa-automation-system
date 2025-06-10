@@ -242,6 +242,49 @@ const handleDeviceFilter = () => {
     fetchData();
 };
 
+const exportResults = async () => {
+    try {
+        const response = await axios.get(`/api/results/export`, {
+            responseType: 'blob'
+        })
+        
+        // Create a blob from the response data
+        const blob = new Blob([response.data], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        })
+        
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(blob)
+        
+        // Create a temporary link element
+        const link = document.createElement('a')
+        link.href = url
+        
+        // Get filename from Content-Disposition header or use default
+        const contentDisposition = response.headers['content-disposition']
+        let filename = 'test_results.xlsx'
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename=(.+)/)
+            if (filenameMatch) {
+                filename = filenameMatch[1]
+            }
+        }
+        
+        link.setAttribute('download', filename)
+        
+        // Append link to body, click it, and remove it
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        // Clean up the URL
+        window.URL.revokeObjectURL(url)
+    } catch (error) {
+        console.error('Error exporting results:', error)
+        alert('Failed to export results. Please try again.')
+    }
+}
+
 onMounted(() => {
     fetchData()
     fetchDropdownData()
@@ -260,11 +303,21 @@ onMounted(() => {
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <button @click="showNewTestModal = true"
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <button
+                            @click="exportResults"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
                             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Export Results
+                        </button>
+                        <button
+                            @click="showNewTestModal = true"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
                             New Test
                         </button>
