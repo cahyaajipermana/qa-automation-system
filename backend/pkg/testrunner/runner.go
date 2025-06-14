@@ -415,7 +415,7 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 						resultDetail := models.ResultDetail{
 							ResultID:    result.ID,
 							Screenshot:  failedAgeVerificationScreenshot,
-							Description: fmt.Sprintf("Screenshot of %v", logMsg),
+							Description: "Screenshot of failed to test age verification",
 						}
 						if err := db.Create(&resultDetail).Error; err != nil {
 							log.Printf("Warning: Failed to store screenshot for %s: %v", browserType, err)
@@ -1077,71 +1077,89 @@ func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string
 		ccYear := os.Getenv("CC_YEAR")
 		ccCvv := os.Getenv("CC_CVV")
 
-		firstNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-64")
+		inputIndex := 0
+		inputs := []string{ccFirstName, ccLastName, ccNumber, ccMonth, ccYear, ccCvv}
+
+		inputElements, err := r.driver.FindElements(selenium.ByTagName, "input")
 		if err != nil {
-			return fmt.Errorf("failed to find first name field: %v", err)
+			return fmt.Errorf("Failed to find age verification form input elements: %v", err)
 		}
-		if err := firstNameField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear first name field: %v", err)
-		}
-		if err := firstNameField.SendKeys(ccFirstName); err != nil {
-			return fmt.Errorf("failed to enter first name: %v", err)
+		for _, element := range inputElements {
+			elementId, err := element.GetAttribute("id")
+			if err != nil {
+				return fmt.Errorf("Failed to get element id: %v", err)
+			}
+			if strings.Contains(strings.ToLower(elementId), "input-") {
+				element.SendKeys(inputs[inputIndex])
+				inputIndex++
+			}
 		}
 
-		lastNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-66")
-		if err != nil {
-			return fmt.Errorf("failed to find last name field: %v", err)
-		}
-		if err := lastNameField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear last name field: %v", err)
-		}
-		if err := lastNameField.SendKeys(ccLastName); err != nil {
-			return fmt.Errorf("failed to enter last name: %v", err)
-		}
+		// firstNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-64")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find first name field: %v", err)
+		// }
+		// if err := firstNameField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear first name field: %v", err)
+		// }
+		// if err := firstNameField.SendKeys(ccFirstName); err != nil {
+		// 	return fmt.Errorf("failed to enter first name: %v", err)
+		// }
 
-		numberField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-68")
-		if err != nil {
-			return fmt.Errorf("failed to find number field: %v", err)
-		}
-		if err := numberField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear number field: %v", err)
-		}
-		if err := numberField.SendKeys(ccNumber); err != nil {
-			return fmt.Errorf("failed to enter number: %v", err)
-		}
+		// lastNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-66")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find last name field: %v", err)
+		// }
+		// if err := lastNameField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear last name field: %v", err)
+		// }
+		// if err := lastNameField.SendKeys(ccLastName); err != nil {
+		// 	return fmt.Errorf("failed to enter last name: %v", err)
+		// }
 
-		monthField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-70")
-		if err != nil {
-			return fmt.Errorf("failed to find month field: %v", err)
-		}
-		if err := monthField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear month field: %v", err)
-		}
-		if err := monthField.SendKeys(ccMonth); err != nil {
-			return fmt.Errorf("failed to enter month: %v", err)
-		}
+		// numberField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-68")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find number field: %v", err)
+		// }
+		// if err := numberField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear number field: %v", err)
+		// }
+		// if err := numberField.SendKeys(ccNumber); err != nil {
+		// 	return fmt.Errorf("failed to enter number: %v", err)
+		// }
 
-		yearField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-72")
-		if err != nil {
-			return fmt.Errorf("failed to find year field: %v", err)
-		}
-		if err := yearField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear year field: %v", err)
-		}
-		if err := yearField.SendKeys(ccYear); err != nil {
-			return fmt.Errorf("failed to enter year: %v", err)
-		}
+		// monthField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-70")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find month field: %v", err)
+		// }
+		// if err := monthField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear month field: %v", err)
+		// }
+		// if err := monthField.SendKeys(ccMonth); err != nil {
+		// 	return fmt.Errorf("failed to enter month: %v", err)
+		// }
 
-		cvvField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-74")
-		if err != nil {
-			return fmt.Errorf("failed to find cvv field: %v", err)
-		}
-		if err := cvvField.Clear(); err != nil {
-			return fmt.Errorf("failed to clear cvv field: %v", err)
-		}
-		if err := cvvField.SendKeys(ccCvv); err != nil {
-			return fmt.Errorf("failed to enter cvv: %v", err)
-		}
+		// yearField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-72")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find year field: %v", err)
+		// }
+		// if err := yearField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear year field: %v", err)
+		// }
+		// if err := yearField.SendKeys(ccYear); err != nil {
+		// 	return fmt.Errorf("failed to enter year: %v", err)
+		// }
+
+		// cvvField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-74")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to find cvv field: %v", err)
+		// }
+		// if err := cvvField.Clear(); err != nil {
+		// 	return fmt.Errorf("failed to clear cvv field: %v", err)
+		// }
+		// if err := cvvField.SendKeys(ccCvv); err != nil {
+		// 	return fmt.Errorf("failed to enter cvv: %v", err)
+		// }
 
 		// Take screenshot of Age Verification Popup
 		ageVerificationScreenshot, err := r.TakeScreenshot()
