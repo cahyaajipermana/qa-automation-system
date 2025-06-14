@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
+import Image from './components/Image.vue'
 
 const sites = ref([])
 const devices = ref([])
@@ -527,13 +528,13 @@ onMounted(() => {
                                 </div>
                                 <div v-if="expandedResults.has(result.id)" class="mt-4 text-left">
                                     <hr class="mb-4">
-                                    <!-- <div v-if="result?.error_log" class="text-sm text-gray-500 mb-4">
-                                        {{ result.error_log }}
-                                    </div> -->
                                     <template v-if="result?.details?.length > 0">
+                                        <div class="text-sm text-red-500 mb-4">
+                                            <i>*) Click the image to view in full width</i>
+                                        </div>
                                         <div v-for="detail in result.details" :key="detail.id" class="mb-6">
                                             <div class="text-sm font-medium text-gray-700 mb-2">{{ detail.description || 'N/A' }}</div>
-                                            <img :src="`${apiUrl}/${detail.screenshot}`" class="max-w-lg rounded-lg shadow-md" />
+                                            <Image :imageUrl="`${apiUrl}/${detail.screenshot}`" />
                                         </div>
                                     </template>
                                     <div v-else class="text-sm text-gray-500">
