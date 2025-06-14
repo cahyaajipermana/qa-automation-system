@@ -82,8 +82,8 @@ const fetchData = async () => {
             // Update pagination metadata if available
             if (response.data.meta) {
                 pagination.value = {
-                    currentPage: response.data.meta.current_page || 1,
-                    perPage: response.data.meta.per_page || 10,
+                    currentPage: response.data.meta.page || 1,
+                    perPage: response.data.meta.limit || 10,
                     total: response.data.meta.total || 0,
                     totalPages: response.data.meta.total_pages || 0,
                     hasNext: response.data.meta.has_next || false,
