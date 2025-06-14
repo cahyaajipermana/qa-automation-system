@@ -168,9 +168,9 @@ func (r *BrowserStackRunner) TakeScreenshot() (string, error) {
 // LogTestStep logs a test step
 func (r *BrowserStackRunner) LogTestStep(step string) error {
 	// Create logs directory if it doesn't exist
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		return fmt.Errorf("failed to create logs directory: %v", err)
-	}
+	// if err := os.MkdirAll("logs", 0755); err != nil {
+	// 	return fmt.Errorf("failed to create logs directory: %v", err)
+	// }
 
 	log.Printf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), step)
 
@@ -257,6 +257,8 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 		return
 	}
 
+	log.Printf("Email: %s, Password: %s", email, password)
+
 	for _, browser := range browsers {
 		go func(browserType string) {
 			startTime := time.Now()
@@ -307,7 +309,7 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 				log.Printf("Warning: Failed to log navigation attempt for %s: %v", browserType, err)
 			}
 
-			if err := runner.NavigateToLoginPage(site.Name); err != nil {
+			if err := runner.NavigateToLoginPage(site.Name, email, password); err != nil {
 				logMsg := fmt.Sprintf("Failed to navigate to login page using %s: %v", browserType, err)
 				runner.logError(result.ID, time.Since(startTime), logMsg)
 				if err := runner.LogTestStep(logMsg); err != nil {
@@ -386,16 +388,40 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			if feature.Name == "Chat Functionality" {
 				if err := runner.ChatFunctionality(db, site, device, feature, browserType, result.ID, startTime); err != nil {
 					log.Printf("Warning: Failed to test chat functionality for Result ID %d: %v", result.ID, err)
+					runner.logError(result.ID, time.Since(startTime), fmt.Sprintf("%v", err))
 					return
 				}
 			} else if feature.Name == "Scrolling Home Page" {
 				if err := runner.ScrollingHomePage(db, site, device, feature, browserType, result.ID, startTime); err != nil {
 					log.Printf("Warning: Failed to test scrolling home page for Result ID %d: %v", result.ID, err)
+					runner.logError(result.ID, time.Since(startTime), fmt.Sprintf("%v", err))
 					return
 				}
 			} else if feature.Name == "Age Verification" {
 				if err := runner.AgeVerification(site.Name, browserType, result.ID, db); err != nil {
-					log.Printf("Warning: Failed to test age verification for Result ID %d: %v", result.ID, err)
+					logMsg := fmt.Sprintf("%v", err)
+					log.Printf("Warning: Failed to test age verification for Result ID %d: %v", result.ID, logMsg)
+					runner.logError(result.ID, time.Since(startTime), logMsg)
+
+					// Take failed screenshot of Age Verification
+					failedAgeVerificationScreenshot, err := runner.TakeScreenshot()
+					if err != nil {
+						log.Printf("Warning: Failed to take screenshot for %s: %v", browserType, err)
+					} else {
+						if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken of %v: %s", logMsg, failedAgeVerificationScreenshot)); err != nil {
+							log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
+						}
+						// Store screenshot in result details
+						resultDetail := models.ResultDetail{
+							ResultID:    result.ID,
+							Screenshot:  failedAgeVerificationScreenshot,
+							Description: fmt.Sprintf("Screenshot of %v", logMsg),
+						}
+						if err := db.Create(&resultDetail).Error; err != nil {
+							log.Printf("Warning: Failed to store screenshot for %s: %v", browserType, err)
+						}
+					}
+
 					return
 				}
 			} else {
@@ -446,38 +472,6 @@ func (r *BrowserStackRunner) LoginHandler(siteName string, email, password strin
 		return fmt.Errorf("driver not initialized")
 	}
 
-	emailSelector := "#input-7"
-	passwordSelector := "#input-9"
-
-	if siteName == "hothinge.com" {
-		emailSelector = "#input-19"
-		passwordSelector = "#input-21"
-	}
-
-	// Find and fill email field
-	emailField, err := r.driver.FindElement(selenium.ByCSSSelector, emailSelector)
-	if err != nil {
-		return fmt.Errorf("failed to find email field: %v", err)
-	}
-	if err := emailField.Clear(); err != nil {
-		return fmt.Errorf("failed to clear email field: %v", err)
-	}
-	if err := emailField.SendKeys(email); err != nil {
-		return fmt.Errorf("failed to enter email: %v", err)
-	}
-
-	// Find and fill password field
-	passwordField, err := r.driver.FindElement(selenium.ByCSSSelector, passwordSelector)
-	if err != nil {
-		return fmt.Errorf("failed to find password field: %v", err)
-	}
-	if err := passwordField.Clear(); err != nil {
-		return fmt.Errorf("failed to clear password field: %v", err)
-	}
-	if err := passwordField.SendKeys(password); err != nil {
-		return fmt.Errorf("failed to enter password: %v", err)
-	}
-
 	// Find and click submit button
 	submitButton, err := r.driver.FindElement(selenium.ByCSSSelector, "#btn-register")
 	if err != nil {
@@ -503,7 +497,7 @@ func (r *BrowserStackRunner) LoginHandler(siteName string, email, password strin
 }
 
 // NavigateToLoginPage navigates to the chat page
-func (r *BrowserStackRunner) NavigateToLoginPage(siteName string) error {
+func (r *BrowserStackRunner) NavigateToLoginPage(siteName string, email, password string) error {
 	if r.driver == nil {
 		return fmt.Errorf("driver not initialized")
 	}
@@ -535,6 +529,38 @@ func (r *BrowserStackRunner) NavigateToLoginPage(siteName string) error {
 	}
 	if currentURL != "https://" + siteName + "/login" {
 		return fmt.Errorf("navigation failed: not on login page, current URL: %s", currentURL)
+	}
+
+	emailSelector := "#input-7"
+	passwordSelector := "#input-9"
+
+	if siteName == "hothinge.com" {
+		emailSelector = "#input-19"
+		passwordSelector = "#input-21"
+	}
+
+	// Find and fill email field
+	emailField, err := r.driver.FindElement(selenium.ByCSSSelector, emailSelector)
+	if err != nil {
+		return fmt.Errorf("failed to find email field: %v", err)
+	}
+	if err := emailField.Clear(); err != nil {
+		return fmt.Errorf("failed to clear email field: %v", err)
+	}
+	if err := emailField.SendKeys(email); err != nil {
+		return fmt.Errorf("failed to enter email: %v", err)
+	}
+
+	// Find and fill password field
+	passwordField, err := r.driver.FindElement(selenium.ByCSSSelector, passwordSelector)
+	if err != nil {
+		return fmt.Errorf("failed to find password field: %v", err)
+	}
+	if err := passwordField.Clear(); err != nil {
+		return fmt.Errorf("failed to clear password field: %v", err)
+	}
+	if err := passwordField.SendKeys(password); err != nil {
+		return fmt.Errorf("failed to enter password: %v", err)
 	}
 
 	return nil
@@ -1035,10 +1061,10 @@ func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string
 		}
 
 		if !isAgeVerificationPopup {
-			return fmt.Errorf("Age Verification Popup not found")
+			return fmt.Errorf("Failed to find age verification form")
 		}
 
-		// Fill in the age verification form
+		// Check the Age Verification Form
 		_, err = r.driver.FindElement(selenium.ByTagName, "form")
 		if err != nil {
 			return fmt.Errorf("Failed to find age verification form: %v", err)

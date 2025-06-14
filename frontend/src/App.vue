@@ -8,6 +8,7 @@ const features = ref([])
 const testResults = ref([])
 const lastUpdated = ref(new Date().toLocaleString())
 const isLoading = ref(true)
+const isSubmitted = ref(false)
 const error = ref(null)
 const showNewTestModal = ref(false)
 const expandedResults = ref(new Set())
@@ -26,7 +27,9 @@ const pagination = ref({
 const newTest = ref({
     site_id: null,
     device_id: null,
-    feature_id: null
+    feature_id: null,
+    email: null,
+    password: null
 })
 
 const filters = ref({
@@ -164,15 +167,29 @@ const fetchDropdownData = async () => {
 
 const createNewTest = async () => {
     try {
+        isSubmitted.value = true
+        error.value = null
+
+        if (
+            !newTest.value.site_id && 
+            !newTest.value.device_id && 
+            !newTest.value.feature_id
+        ) {
+            return false
+        }
+
         const response = await axios.post('/api/results', newTest.value)
             .then(response => {
                 // Reset the form
                 newTest.value = {
                     site_id: null,
                     device_id: null,
-                    feature_id: null
+                    feature_id: null,
+                    email: null,
+                    password: null
                 }
                 // Close the modal
+                isSubmitted.value = false
                 showNewTestModal.value = false
                 // Refresh the data
                 
@@ -181,8 +198,13 @@ const createNewTest = async () => {
                 }, 1000)
             })
             .catch(err => {
+                isSubmitted.value = false
+                showNewTestModal.value = false
                 console.error('Error creating test:', err)
                 error.value = 'Failed to create new test. Please try again.'
+                setTimeout(() => {
+                    refreshResults()
+                }, 2500)
             })
     } catch (err) {
         console.error('Error creating test:', err)
@@ -620,6 +642,7 @@ onMounted(() => {
                                             <option :value="null">Select a site</option>
                                             <option v-for="site in sites" :key="`new-site-${site.id}`" :value="Number(site.id)">{{ site.name }}</option>
                                         </select>
+                                        <small v-if="!newTest.site_id && isSubmitted" class="text-red-500">Please select a site</small>
                                     </div>
 
                                     <div>
@@ -630,6 +653,7 @@ onMounted(() => {
                                             <option :value="null">Select a device</option>
                                             <option v-for="device in devices" :key="`new-device-${device.id}`" :value="Number(device.id)">{{ device.name }}</option>
                                         </select>
+                                        <small v-if="!newTest.device_id && isSubmitted" class="text-red-500">Please select a device</small>
                                     </div>
 
                                     <div>
@@ -640,6 +664,21 @@ onMounted(() => {
                                             <option :value="null">Select a feature</option>
                                             <option v-for="feature in features" :key="`new-feature-${feature.id}`" :value="Number(feature.id)">{{ feature.name }}</option>
                                         </select>
+                                        <small v-if="!newTest.feature_id && isSubmitted" class="text-red-500">Please select a feature</small>
+                                    </div>
+
+                                    <div>
+                                        <label for="email" class="block text-sm font-medium text-gray-700">
+                                            Email <small>(not required)</small>
+                                        </label>
+                                        <input type="email" v-model="newTest.email" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" style="color: #000;" :placeholder="`Enter your Site account email...`"/>
+                                    </div>
+
+                                    <div>
+                                        <label for="password" class="block text-sm font-medium text-gray-700">
+                                            Password <small>(not required)</small>
+                                        </label>
+                                        <input type="password" v-model="newTest.password" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" style="color: #000;" :placeholder="`Enter your Site account password...`"/>
                                     </div>
 
                                     <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">

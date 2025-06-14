@@ -43,6 +43,8 @@ func (c *ResultController) Create(ctx *gin.Context) {
 		SiteID    uint `json:"site_id" binding:"required"`
 		DeviceID  uint `json:"device_id" binding:"required"`
 		FeatureID uint `json:"feature_id" binding:"required"`
+		Email     string `json:"email"`
+		Password  string `json:"password"`
 	}
 
 	if err := ctx.ShouldBindJSON(&payload); err != nil {
@@ -53,6 +55,11 @@ func (c *ResultController) Create(ctx *gin.Context) {
 	// Get credentials from environment variables
 	email := os.Getenv("SENTI_EMAIL")
 	password := os.Getenv("SENTI_PASSWORD")
+
+	if payload.Email != "" && payload.Password != "" {
+		email = payload.Email
+		password = payload.Password
+	}
 
 	// Run the test in the background with the payload
 	go testrunner.RunTestInBackground(payload.SiteID, payload.DeviceID, payload.FeatureID, email, password)
