@@ -223,8 +223,14 @@ func (r *BrowserStackRunner) StoreTestResult(result *TestResult) error {
 
 // RunTestInBackground runs the test in the background for multiple browsers
 func RunTestInBackground(siteID, deviceID, featureID uint, email, password string) {
+	appEnv := os.Getenv("APP_ENV")
+	
 	// Define browsers to test
-	browsers := []string{"chrome"/*, "firefox", "edge", "safari"*/}
+	browsers := []string{"chrome", "firefox", "edge", "safari"}
+
+	if appEnv != "production" {
+		browsers = []string{"chrome"}
+	}
 
 	// Initialize database connection
 	db, err := config.InitDB()
