@@ -26,4 +26,5 @@ INSERT INTO features (name, created_at, updated_at) VALUES
 ('iFrame Slot Machine Games', NOW(), NOW()),
 ('Localisation / Language Support', NOW(), NOW()),
 ('UI Stability & Consistency', NOW(), NOW()),
-('Scrolling Home Page', NOW(), NOW()); 
+('Scrolling Home Page', NOW(), NOW()),
+('Premium Subscription', NOW(), NOW()); 

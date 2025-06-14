@@ -324,24 +324,7 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			log.Printf("Successfully navigated to login page using %s!", browserType)
 
 			// Take screenshot of login page
-			loginPageScreenshot, err := runner.TakeScreenshot()
-			if err != nil {
-				log.Printf("Warning: Failed to take login page screenshot for %s: %v", browserType, err)
-			} else {
-				log.Printf("Login page screenshot saved for %s: %s", browserType, loginPageScreenshot)
-				if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken of login page: %s", loginPageScreenshot)); err != nil {
-					log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-				}
-				// Store screenshot in result details
-				resultDetail := models.ResultDetail{
-					ResultID:   result.ID,
-					Screenshot: loginPageScreenshot,
-					Description: "Screenshot of login page",
-				}
-				if err := db.Create(&resultDetail).Error; err != nil {
-					log.Printf("Warning: Failed to store login page screenshot for %s: %v", browserType, err)
-				}
-			}
+			runner.TakeStepScreenshot(db, result.ID, browserType, "Login Page")
 
 			// Perform login
 			log.Printf("Attempting to login to " + site.Name + " using %s...", browserType)
@@ -363,74 +346,55 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			}
 			log.Printf("Login successful for %s!", browserType)
 
-			// Take screenshot after login
-			// Home page screenshot
-			afterLoginScreenshot, err := runner.TakeScreenshot()
-			if err != nil {
-				log.Printf("Warning: Failed to take after login screenshot for %s: %v", browserType, err)
-			} else {
-				log.Printf("After login screenshot saved for %s: %s", browserType, afterLoginScreenshot)
-				if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken after login: %s", afterLoginScreenshot)); err != nil {
-					log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-				}
-				// Store screenshot in result details
-				resultDetail := models.ResultDetail{
-					ResultID:   result.ID,
-					Screenshot: afterLoginScreenshot,
-					Description: "Screenshot after successful login",
-				}
-				if err := db.Create(&resultDetail).Error; err != nil {
-					log.Printf("Warning: Failed to store after login screenshot for %s: %v", browserType, err)
-				}
-			}
+			// Take screenshot after login -- home page screenshot
+			runner.TakeStepScreenshot(db, result.ID, browserType, "After Successful Login")
+
+			// Failed test feature flag
+			isFailed := false
+			logMsg := ""
 
 			// Test Chat Functionality
 			if feature.Name == "Chat Functionality" {
 				if err := runner.ChatFunctionality(db, site, device, feature, browserType, result.ID, startTime); err != nil {
+					logMsg = fmt.Sprintf("%v", err)
 					log.Printf("Warning: Failed to test chat functionality for Result ID %d: %v", result.ID, err)
 					runner.logError(result.ID, time.Since(startTime), fmt.Sprintf("%v", err))
-					return
+					isFailed = true
 				}
 			} else if feature.Name == "Scrolling Home Page" {
 				if err := runner.ScrollingHomePage(db, site, device, feature, browserType, result.ID, startTime); err != nil {
+					logMsg = fmt.Sprintf("%v", err)
 					log.Printf("Warning: Failed to test scrolling home page for Result ID %d: %v", result.ID, err)
 					runner.logError(result.ID, time.Since(startTime), fmt.Sprintf("%v", err))
-					return
+					isFailed = true
 				}
 			} else if feature.Name == "Age Verification" {
-				if err := runner.AgeVerification(site.Name, browserType, result.ID, db); err != nil {
-					logMsg := fmt.Sprintf("%v", err)
+				if err := runner.AgeVerification(site.Name, feature.Name, browserType, result.ID, db); err != nil {
+					logMsg = fmt.Sprintf("%v", err)
 					log.Printf("Warning: Failed to test age verification for Result ID %d: %v", result.ID, logMsg)
 					runner.logError(result.ID, time.Since(startTime), logMsg)
-
-					// Take failed screenshot of Age Verification
-					failedAgeVerificationScreenshot, err := runner.TakeScreenshot()
-					if err != nil {
-						log.Printf("Warning: Failed to take screenshot for %s: %v", browserType, err)
-					} else {
-						if err := runner.LogTestStep(fmt.Sprintf("Screenshot taken of %v: %s", logMsg, failedAgeVerificationScreenshot)); err != nil {
-							log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-						}
-						// Store screenshot in result details
-						resultDetail := models.ResultDetail{
-							ResultID:    result.ID,
-							Screenshot:  failedAgeVerificationScreenshot,
-							Description: "Screenshot of failed to test age verification",
-						}
-						if err := db.Create(&resultDetail).Error; err != nil {
-							log.Printf("Warning: Failed to store screenshot for %s: %v", browserType, err)
-						}
-					}
-
-					return
+					isFailed = true
+				}
+			} else if feature.Name == "Premium Subscription" {
+				if err := runner.PremiumSubscription(site.Name, feature.Name, browserType, result.ID, db); err != nil {
+					logMsg = fmt.Sprintf("%v", err)
+					log.Printf("Warning: Failed to test premium subscription for Result ID %d: %v", result.ID, logMsg)
+					runner.logError(result.ID, time.Since(startTime), logMsg)
+					isFailed = true
 				}
 			} else {
 				// the rest function has not done yet
-				logMsg := fmt.Sprintf("%s feature has not been implemented yet", feature.Name)
+				logMsg = fmt.Sprintf("%s feature has not been implemented yet", feature.Name)
 				runner.logError(result.ID, time.Since(startTime), logMsg)
 				if err := runner.LogTestStep(logMsg); err != nil {
 					log.Printf("%s feature has not been implemented yet", feature.Name)
 				}
+				isFailed = true
+			}
+
+			if isFailed {
+				// Take failed screenshot
+				runner.TakeStepScreenshot(db, result.ID, browserType, fmt.Sprintf("Failed to test %s", feature.Name))
 				return
 			}
 
@@ -752,24 +716,7 @@ func (r *BrowserStackRunner) ChatFunctionality(db *gorm.DB, site models.Site, de
 	log.Printf("Successfully navigated to chat page using %s!", browserType)
 
 	// Take screenshot of chat page
-	chatPageScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take chat page screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("Chat page screenshot saved for %s: %s", browserType, chatPageScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of chat page: %s", chatPageScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:   resultID,
-			Screenshot: chatPageScreenshot,
-			Description: "Screenshot of chat page",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store chat page screenshot for %s: %v", browserType, err)
-		}
-	}
+	r.TakeStepScreenshot(db, resultID, browserType, "Chat Page")
 
 	// Navigate to open chat
 	log.Printf("Navigating to open chat using %s...", browserType)
@@ -792,24 +739,7 @@ func (r *BrowserStackRunner) ChatFunctionality(db *gorm.DB, site models.Site, de
 	log.Printf("Successfully navigated to open chat using %s!", browserType)
 
 	// Take screenshot of open chat
-	openChatPageScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take open chat screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("Open chat screenshot saved for %s: %s", browserType, openChatPageScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of open chat: %s", openChatPageScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:   resultID,
-			Screenshot: openChatPageScreenshot,
-			Description: "Screenshot of open chat",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store open chat screenshot for %s: %v", browserType, err)
-		}
-	}
+	r.TakeStepScreenshot(db, resultID, browserType, "Open Chat Page")
 
 	// Navigate to send message to chat
 	log.Printf("Navigating to send message to chat using %s...", browserType)
@@ -832,24 +762,7 @@ func (r *BrowserStackRunner) ChatFunctionality(db *gorm.DB, site models.Site, de
 	log.Printf("Successfully navigated to send message to chat using %s!", browserType)
 
 	// Take screenshot of sending message to chat
-	sendChatPageScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take send message to chat screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("Send message to chat screenshot saved for %s: %s", browserType, sendChatPageScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of sending message to chat: %s", sendChatPageScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:   resultID,
-			Screenshot: sendChatPageScreenshot,
-			Description: "Screenshot of sending message to chat",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store send message to chat screenshot for %s: %v", browserType, err)
-		}
-	}
+	r.TakeStepScreenshot(db, resultID, browserType, "Sending Message to Chat")
 
 	return nil
 }
@@ -898,24 +811,7 @@ func (r *BrowserStackRunner) ScrollingHomePage(db *gorm.DB, site models.Site, de
 	time.Sleep(1 * time.Second)
 
 	// Take screenshot after scroll event
-	afterScrollScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take after-scroll screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("After-scroll screenshot saved for %s: %s", browserType, afterScrollScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken after scroll event: %s", afterScrollScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:    resultID,
-			Screenshot:  afterScrollScreenshot,
-			Description: "Screenshot after scroll event",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store after-scroll screenshot for %s: %v", browserType, err)
-		}
-	}
+	r.TakeStepScreenshot(db, resultID, browserType, "After Scroll Event")
 
 	return nil
 }
@@ -930,25 +826,8 @@ func (r *BrowserStackRunner) pauseVideo(db *gorm.DB, resultID uint, browserType 
 	}
 	time.Sleep(1 * time.Second)
 
-	// Take screenshot of paused video
-	pausedVideoScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take paused video screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("Paused video screenshot saved for %s: %s", browserType, pausedVideoScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of paused video: %s", pausedVideoScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:    resultID,
-			Screenshot:  pausedVideoScreenshot,
-			Description: "Screenshot of paused video",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store paused video screenshot for %s: %v", browserType, err)
-		}
-	}
+	// Take screenshot of pause video
+	r.TakeStepScreenshot(db, resultID, browserType, "Pause Video")
 
 	return nil
 }
@@ -963,25 +842,8 @@ func (r *BrowserStackRunner) playVideo(db *gorm.DB, resultID uint, browserType s
 	}
 	time.Sleep(2 * time.Second)
 
-	// Take screenshot of played video
-	playedVideoScreenshot, err := r.TakeScreenshot()
-	if err != nil {
-		log.Printf("Warning: Failed to take played video screenshot for %s: %v", browserType, err)
-	} else {
-		log.Printf("Played video screenshot saved for %s: %s", browserType, playedVideoScreenshot)
-		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of played video: %s", playedVideoScreenshot)); err != nil {
-			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-		}
-		// Store screenshot in result details
-		resultDetail := models.ResultDetail{
-			ResultID:    resultID,
-			Screenshot:  playedVideoScreenshot,
-			Description: "Screenshot of played video",
-		}
-		if err := db.Create(&resultDetail).Error; err != nil {
-			log.Printf("Warning: Failed to store played video screenshot for %s: %v", browserType, err)
-		}
-	}
+	// Take screenshot of play video
+	r.TakeStepScreenshot(db, resultID, browserType, "Play Video")
 	
 	return nil
 }
@@ -1016,7 +878,7 @@ func simulateWheelEvent(deltaY int, wheelCssSelector string) string {
 }
 
 // Age verfication
-func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string, resultID uint, db *gorm.DB) error {
+func (r *BrowserStackRunner) AgeVerification(siteName string, featureName string, browserType string, resultID uint, db *gorm.DB) error {
 	if r.driver == nil {
 		return fmt.Errorf("driver not initialized")
 	}
@@ -1099,91 +961,8 @@ func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string
 			}
 		}
 
-		// firstNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-64")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find first name field: %v", err)
-		// }
-		// if err := firstNameField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear first name field: %v", err)
-		// }
-		// if err := firstNameField.SendKeys(ccFirstName); err != nil {
-		// 	return fmt.Errorf("failed to enter first name: %v", err)
-		// }
-
-		// lastNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-66")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find last name field: %v", err)
-		// }
-		// if err := lastNameField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear last name field: %v", err)
-		// }
-		// if err := lastNameField.SendKeys(ccLastName); err != nil {
-		// 	return fmt.Errorf("failed to enter last name: %v", err)
-		// }
-
-		// numberField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-68")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find number field: %v", err)
-		// }
-		// if err := numberField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear number field: %v", err)
-		// }
-		// if err := numberField.SendKeys(ccNumber); err != nil {
-		// 	return fmt.Errorf("failed to enter number: %v", err)
-		// }
-
-		// monthField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-70")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find month field: %v", err)
-		// }
-		// if err := monthField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear month field: %v", err)
-		// }
-		// if err := monthField.SendKeys(ccMonth); err != nil {
-		// 	return fmt.Errorf("failed to enter month: %v", err)
-		// }
-
-		// yearField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-72")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find year field: %v", err)
-		// }
-		// if err := yearField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear year field: %v", err)
-		// }
-		// if err := yearField.SendKeys(ccYear); err != nil {
-		// 	return fmt.Errorf("failed to enter year: %v", err)
-		// }
-
-		// cvvField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-74")
-		// if err != nil {
-		// 	return fmt.Errorf("failed to find cvv field: %v", err)
-		// }
-		// if err := cvvField.Clear(); err != nil {
-		// 	return fmt.Errorf("failed to clear cvv field: %v", err)
-		// }
-		// if err := cvvField.SendKeys(ccCvv); err != nil {
-		// 	return fmt.Errorf("failed to enter cvv: %v", err)
-		// }
-
 		// Take screenshot of Age Verification Popup
-		ageVerificationScreenshot, err := r.TakeScreenshot()
-		if err != nil {
-			log.Printf("Warning: Failed to take age verification screenshot for %s: %v", browserType, err)
-		} else {
-			log.Printf("Age verification screenshot saved for %s: %s", browserType, ageVerificationScreenshot)
-			if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of age verification: %s", ageVerificationScreenshot)); err != nil {
-				log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
-			}
-			// Store screenshot in result details
-			resultDetail := models.ResultDetail{
-				ResultID:    resultID,
-				Screenshot:  ageVerificationScreenshot,
-				Description: "Screenshot of age verification popup",
-			}
-			if err := db.Create(&resultDetail).Error; err != nil {
-				log.Printf("Warning: Failed to store age verification screenshot for %s: %v", browserType, err)
-			}
-		}
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("%s Popup", featureName))
 
 		time.Sleep(1 * time.Second)
 
@@ -1199,28 +978,138 @@ func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string
 		// Wait for submit button to be clicked
 		time.Sleep(5 * time.Second)
 
-		// Take screenshot of submitted age verification
-		submittedAgeVerificationScreenshot, err := r.TakeScreenshot()
-		if err != nil {
-			log.Printf("Warning: Failed to take submitted age verification screenshot for %s: %v", browserType, err)
-		} else {
-			log.Printf("Submitted age verification screenshot saved for %s: %s", browserType, submittedAgeVerificationScreenshot)
-			if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of submitted age verification: %s", submittedAgeVerificationScreenshot)); err != nil {
-				log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)		
-			}
-			// Store screenshot in result details
-			resultDetail := models.ResultDetail{
-				ResultID:    resultID,
-				Screenshot:  submittedAgeVerificationScreenshot,
-				Description: "Screenshot of submitted age verification",
-			}
-			if err := db.Create(&resultDetail).Error; err != nil {
-				log.Printf("Warning: Failed to store submitted age verification screenshot for %s: %v", browserType, err)
-			}
-		}
+		// Take screenshot of submit age verification
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("Submit %s", featureName))
 	}
 
 	return nil
+}
+
+// Premium Subscription
+func (r *BrowserStackRunner) PremiumSubscription(siteName string, featureName string, browserType string, resultID uint, db *gorm.DB) error {
+	if r.driver == nil {
+		return fmt.Errorf("driver not initialized")
+	}
+
+	if siteName == "senti.live" {
+		
+	}
+
+	if siteName == "hothinge.com" {
+		
+	}
+
+	if siteName == "shorts.senti.live" || siteName == "viblys.com" {
+		// Click Comment Button to open Premium Subscription Popup
+		commentButton, err := r.driver.FindElement(selenium.ByCSSSelector, ".mdi-comment")
+		if err != nil {
+			return fmt.Errorf("Failed to find comment button: %v", err)
+		}
+		if err := commentButton.Click(); err != nil {
+			return fmt.Errorf("Failed to click comment button: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+
+		// Search <h2> element with innerHTML contains "Go premium and connect"
+		elements, err := r.driver.FindElements(selenium.ByTagName, "h2")
+		if err != nil {
+			return fmt.Errorf("Failed to find <h2> elements: %v", err)
+		}
+
+		isPremiumSubscription := false
+
+		for _, element := range elements {
+			text, err := element.Text()
+			if err != nil {
+				return fmt.Errorf("Failed to get innterHTML element: %v", err)
+			}
+			log.Printf("Element text: %s", text)
+			if strings.Contains(strings.ToLower(text), "go premium and connect") {
+				isPremiumSubscription = true
+				break
+			}
+		}
+
+		if !isPremiumSubscription {
+			return fmt.Errorf("Failed to find premium subscription form")
+		}
+
+		// Take screenshot of premium subscription form
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("%s Popup", featureName))
+
+		// Click Monthly Plan Button
+		monthlyPlanButton, err := r.driver.FindElement(selenium.ByCSSSelector, ".btn-price")
+		if err != nil {
+			return fmt.Errorf("Failed to find monthly plan button: %v", err)
+		}
+		if err := monthlyPlanButton.Click(); err != nil {
+			return fmt.Errorf("Failed to click monthly plan button: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+
+		// Take screenshot of after click monthly plan button
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("%s Confirmation Popup", featureName))
+
+		// Click Confirm Button
+		paymentConfirmationDialog, err := r.driver.FindElement(selenium.ByCSSSelector, ".payment-confirmation-dialog")
+		if err != nil {
+			return fmt.Errorf("Failed to find payment confirmation dialog: %v", err)
+		}
+
+		paymentConfirmationButtons, err := paymentConfirmationDialog.FindElements(selenium.ByTagName, "button")
+		if err != nil {
+			return fmt.Errorf("Failed to find payment confirmation button: %v", err)
+		}
+
+		if len(paymentConfirmationButtons) == 0 {
+			return fmt.Errorf("No buttons found on the payment confirmation dialog.")
+		}
+
+		confirmButton := paymentConfirmationButtons[len(paymentConfirmationButtons)-1]
+
+		if confirmButton == nil {
+			return fmt.Errorf("Failed to find confirm button")
+		}
+
+		// Click Confirm Button
+		if err := confirmButton.Click(); err != nil {
+			return fmt.Errorf("Failed to click confirm button: %v", err)
+		}
+
+		time.Sleep(1 * time.Second)
+
+		// Take screenshot of premium subscription confirmed
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("%s Confirmation Process", featureName))
+
+		time.Sleep(2 * time.Second)
+
+		// Take screenshot of premium subscription completed
+		r.TakeStepScreenshot(db, resultID, browserType, fmt.Sprintf("%s Completed", featureName))
+	}
+	
+	return nil
+}
+
+func (r *BrowserStackRunner) TakeStepScreenshot(db *gorm.DB, resultID uint, browserType string, featureName string) {
+	// Take screenshot
+	stepScreenshot, err := r.TakeScreenshot()
+	if err != nil {
+		log.Printf("Warning: Failed to take %s screenshot for %s: %v", featureName, browserType, err)
+	} else {
+		log.Printf("%s screenshot saved for %s: %s", featureName, browserType, stepScreenshot)
+		if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of %s: %s", featureName, stepScreenshot)); err != nil {
+			log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
+		}
+		// Store screenshot in result details
+		resultDetail := models.ResultDetail{
+			ResultID:    resultID,
+			Screenshot:  stepScreenshot,
+			Description: fmt.Sprintf("Screenshot of %s", featureName),
+		}
+		if err := db.Create(&resultDetail).Error; err != nil {
+			log.Printf("Warning: Failed to store %s screenshot for %s: %v", featureName, browserType, err)
+		}
+	}
 }
 
 // logError updates the result status and error log in the database
