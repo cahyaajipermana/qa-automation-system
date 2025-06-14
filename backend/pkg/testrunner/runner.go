@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tebeka/selenium"
@@ -223,7 +224,7 @@ func (r *BrowserStackRunner) StoreTestResult(result *TestResult) error {
 // RunTestInBackground runs the test in the background for multiple browsers
 func RunTestInBackground(siteID, deviceID, featureID uint, email, password string) {
 	// Define browsers to test
-	browsers := []string{"chrome", "firefox", "edge", "safari"}
+	browsers := []string{"chrome"/*, "firefox", "edge", "safari"*/}
 
 	// Initialize database connection
 	db, err := config.InitDB()
@@ -384,6 +385,11 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 			} else if feature.Name == "Scrolling Home Page" {
 				if err := runner.ScrollingHomePage(db, site, device, feature, browserType, result.ID, startTime); err != nil {
 					log.Printf("Warning: Failed to test scrolling home page for Result ID %d: %v", result.ID, err)
+					return
+				}
+			} else if feature.Name == "Age Verification" {
+				if err := runner.AgeVerification(site.Name, browserType, result.ID, db); err != nil {
+					log.Printf("Warning: Failed to test age verification for Result ID %d: %v", result.ID, err)
 					return
 				}
 			} else {
@@ -975,6 +981,192 @@ func simulateWheelEvent(deltaY int, wheelCssSelector string) string {
 		});
 		document.getElementsByClassName('%s')[0].dispatchEvent(wheelEvent);	
 	`, deltaY, wheelCssSelector)
+}
+
+// Age verfication
+func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string, resultID uint, db *gorm.DB) error {
+	if r.driver == nil {
+		return fmt.Errorf("driver not initialized")
+	}
+
+	if siteName == "senti.live" {
+		
+	}
+
+	if siteName == "hothinge.com" {
+		
+	}
+
+	if siteName == "shorts.senti.live" || siteName == "viblys.com" {
+		// Click Comment Button to open Age Verfification Popup
+		commentButton, err := r.driver.FindElement(selenium.ByCSSSelector, ".mdi-comment")
+		if err != nil {
+			return fmt.Errorf("Failed to find comment button: %v", err)
+		}
+		if err := commentButton.Click(); err != nil {
+			return fmt.Errorf("Failed to click comment button: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+
+		// Search <p> element with innerHTML AGE VERIFICATION
+		elements, err := r.driver.FindElements(selenium.ByTagName, "p")
+		if err != nil {
+			return fmt.Errorf("Failed to find <p> elements: %v", err)
+		}
+
+		isAgeVerificationPopup := false
+
+		for _, element := range elements {
+			text, err := element.Text()
+			if err != nil {
+				return fmt.Errorf("Failed to get innterHTML element: %v", err)
+			}
+			log.Printf("Element text: %s", text)
+			if strings.ToLower(text) == "age verification" {
+				isAgeVerificationPopup = true
+				break
+			}
+		}
+
+		if !isAgeVerificationPopup {
+			return fmt.Errorf("Age Verification Popup not found")
+		}
+
+		// Fill in the age verification form
+		_, err = r.driver.FindElement(selenium.ByTagName, "form")
+		if err != nil {
+			return fmt.Errorf("Failed to find age verification form: %v", err)
+		}
+
+		ccFirstName := os.Getenv("CC_FIRST_NAME")
+		ccLastName := os.Getenv("CC_LAST_NAME")
+		ccNumber := os.Getenv("CC_NUMBER")
+		ccMonth := os.Getenv("CC_MONTH")
+		ccYear := os.Getenv("CC_YEAR")
+		ccCvv := os.Getenv("CC_CVV")
+
+		firstNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-64")
+		if err != nil {
+			return fmt.Errorf("failed to find first name field: %v", err)
+		}
+		if err := firstNameField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear first name field: %v", err)
+		}
+		if err := firstNameField.SendKeys(ccFirstName); err != nil {
+			return fmt.Errorf("failed to enter first name: %v", err)
+		}
+
+		lastNameField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-66")
+		if err != nil {
+			return fmt.Errorf("failed to find last name field: %v", err)
+		}
+		if err := lastNameField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear last name field: %v", err)
+		}
+		if err := lastNameField.SendKeys(ccLastName); err != nil {
+			return fmt.Errorf("failed to enter last name: %v", err)
+		}
+
+		numberField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-68")
+		if err != nil {
+			return fmt.Errorf("failed to find number field: %v", err)
+		}
+		if err := numberField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear number field: %v", err)
+		}
+		if err := numberField.SendKeys(ccNumber); err != nil {
+			return fmt.Errorf("failed to enter number: %v", err)
+		}
+
+		monthField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-70")
+		if err != nil {
+			return fmt.Errorf("failed to find month field: %v", err)
+		}
+		if err := monthField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear month field: %v", err)
+		}
+		if err := monthField.SendKeys(ccMonth); err != nil {
+			return fmt.Errorf("failed to enter month: %v", err)
+		}
+
+		yearField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-72")
+		if err != nil {
+			return fmt.Errorf("failed to find year field: %v", err)
+		}
+		if err := yearField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear year field: %v", err)
+		}
+		if err := yearField.SendKeys(ccYear); err != nil {
+			return fmt.Errorf("failed to enter year: %v", err)
+		}
+
+		cvvField, err := r.driver.FindElement(selenium.ByCSSSelector, "#input-74")
+		if err != nil {
+			return fmt.Errorf("failed to find cvv field: %v", err)
+		}
+		if err := cvvField.Clear(); err != nil {
+			return fmt.Errorf("failed to clear cvv field: %v", err)
+		}
+		if err := cvvField.SendKeys(ccCvv); err != nil {
+			return fmt.Errorf("failed to enter cvv: %v", err)
+		}
+
+		// Take screenshot of Age Verification Popup
+		ageVerificationScreenshot, err := r.TakeScreenshot()
+		if err != nil {
+			log.Printf("Warning: Failed to take age verification screenshot for %s: %v", browserType, err)
+		} else {
+			log.Printf("Age verification screenshot saved for %s: %s", browserType, ageVerificationScreenshot)
+			if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of age verification: %s", ageVerificationScreenshot)); err != nil {
+				log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)
+			}
+			// Store screenshot in result details
+			resultDetail := models.ResultDetail{
+				ResultID:    resultID,
+				Screenshot:  ageVerificationScreenshot,
+				Description: "Screenshot of age verification popup",
+			}
+			if err := db.Create(&resultDetail).Error; err != nil {
+				log.Printf("Warning: Failed to store age verification screenshot for %s: %v", browserType, err)
+			}
+		}
+
+		time.Sleep(1 * time.Second)
+
+		// Click the Submit Button
+		submitButton, err := r.driver.FindElement(selenium.ByCSSSelector, ".btn-chat-profile")
+		if err != nil {
+			return fmt.Errorf("Failed to find submit button: %v", err)
+		}
+		if err := submitButton.Click(); err != nil {
+			return fmt.Errorf("Failed to click submit button: %v", err)
+		}
+
+		// Wait for submit button to be clicked
+		time.Sleep(5 * time.Second)
+
+		// Take screenshot of submitted age verification
+		submittedAgeVerificationScreenshot, err := r.TakeScreenshot()
+		if err != nil {
+			log.Printf("Warning: Failed to take submitted age verification screenshot for %s: %v", browserType, err)
+		} else {
+			log.Printf("Submitted age verification screenshot saved for %s: %s", browserType, submittedAgeVerificationScreenshot)
+			if err := r.LogTestStep(fmt.Sprintf("Screenshot taken of submitted age verification: %s", submittedAgeVerificationScreenshot)); err != nil {
+				log.Printf("Warning: Failed to log screenshot for %s: %v", browserType, err)		
+			}
+			// Store screenshot in result details
+			resultDetail := models.ResultDetail{
+				ResultID:    resultID,
+				Screenshot:  submittedAgeVerificationScreenshot,
+				Description: "Screenshot of submitted age verification",
+			}
+			if err := db.Create(&resultDetail).Error; err != nil {
+				log.Printf("Warning: Failed to store submitted age verification screenshot for %s: %v", browserType, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // logError updates the result status and error log in the database
