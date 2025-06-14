@@ -14,7 +14,7 @@ import (
 )
 
 // migrationsDir is the directory containing migration files
-var migrationsDir = filepath.Join("migrations")
+var migrationsDir = "migrations"
 
 // Migration represents a database migration
 type Migration struct {

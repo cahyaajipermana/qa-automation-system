@@ -38,30 +38,28 @@ const filters = ref({
 
 // Computed properties for summary cards
 const totalTests = computed(() => {
-    return Array.isArray(testResults.value) ? testResults.value.length : 0
+    return pagination.value.total || 0
 })
 
 const passedTests = computed(() => {
-    return Array.isArray(testResults.value)
-        ? testResults.value.filter(r => r && r.status === 'passed').length
-        : 0
+    return statusCounts.value.find(s => s.status === 'passed')?.count || 0
 })
 
 const failedTests = computed(() => {
-    return Array.isArray(testResults.value)
-        ? testResults.value.filter(r => r && r.status === 'failed').length
-        : 0
+    return statusCounts.value.find(s => s.status === 'failed')?.count || 0
 })
 
 const warningTests = computed(() => {
-    return Array.isArray(testResults.value)
-        ? testResults.value.filter(r => r && r.status === 'warning').length
-        : 0
+    return statusCounts.value.find(s => s.status === 'warning')?.count || 0
 })
+
+const statusCounts = ref([])
 
 const fetchData = async () => {
     isLoading.value = true
     error.value = null
+
+    statusCounts.value = []
 
     try {
         const response = await axios.get('/api/results', {
@@ -88,6 +86,7 @@ const fetchData = async () => {
                     hasNext: response.data.meta.has_next || false,
                     hasPrev: response.data.meta.has_prev || false
                 }
+                statusCounts.value = response.data.meta.status_counts || []
             }
         } else {
             // Handle legacy response format (array of results)
@@ -101,6 +100,7 @@ const fetchData = async () => {
                     hasNext: false,
                     hasPrev: false
                 }
+                statusCounts.value = response.data.meta.status_counts || []
             } else {
                 testResults.value = []
                 pagination.value = {

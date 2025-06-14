@@ -38,7 +38,7 @@ func (c *FeatureController) Create(ctx *gin.Context) {
 // GetAll retrieves all features
 func (c *FeatureController) GetAll(ctx *gin.Context) {
 	var features []models.Feature
-	if err := c.DB.Find(&features).Error; err != nil {
+	if err := c.DB.Order("name ASC").Find(&features).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

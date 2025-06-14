@@ -225,19 +225,24 @@ func (rc *ResultController) GetResults(c *gin.Context) {
 	var results []models.Result
 	var total int64
 	query := rc.DB.Model(&models.Result{})
+	countQuery := rc.DB.Model(&models.Result{})
 
 	// Apply filters if they exist
 	if siteID != "" {
 		query = query.Where("site_id = ?", siteID)
+		countQuery = countQuery.Where("site_id = ?", siteID)
 	}
 	if deviceID != "" {
 		query = query.Where("device_id = ?", deviceID)
+		countQuery = countQuery.Where("device_id = ?", deviceID)
 	}
 	if featureID != "" {
 		query = query.Where("feature_id = ?", featureID)
+		countQuery = countQuery.Where("feature_id = ?", featureID)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
+		countQuery = countQuery.Where("status = ?", status)
 	}
 
 	// Get total count with filters
@@ -256,7 +261,17 @@ func (rc *ResultController) GetResults(c *gin.Context) {
 		Offset(offset).
 		Limit(limit).
 		Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch results"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch results"})
+			return
+		}
+
+	// Get passed, failed, and warning counts
+	var statusCounts []struct {
+		Status string `json:"status"`
+		Count  int64  `json:"count"`
+	}
+	if err := countQuery.Select("status, COUNT(*) as count").Where("status <> ?", "processing").Group("status").Scan(&statusCounts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count passed results"})
 		return
 	}
 
@@ -267,6 +282,7 @@ func (rc *ResultController) GetResults(c *gin.Context) {
 			"page": page,
 			"limit": limit,
 			"total_pages": int(math.Ceil(float64(total) / float64(limit))),
+			"status_counts": statusCounts,
 		},
 	})
 }

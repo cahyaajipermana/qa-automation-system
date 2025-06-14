@@ -16,6 +16,7 @@ type Result struct {
 	Screenshot string    `json:"screenshot" gorm:"type:varchar(255);null"`
 	ErrorLog  string    `json:"error_log" gorm:"type:varchar(255);null"`
 	Duration  float64   `json:"duration" gorm:"type:float;null"`
+	VideoPath string    `json:"video_path" gorm:"type:varchar(255);null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Site      Site      `json:"site" gorm:"foreignKey:SiteID"`
