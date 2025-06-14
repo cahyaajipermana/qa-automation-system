@@ -1077,6 +1077,10 @@ func (r *BrowserStackRunner) AgeVerification(siteName string, browserType string
 		ccYear := os.Getenv("CC_YEAR")
 		ccCvv := os.Getenv("CC_CVV")
 
+		if ccFirstName == "" || ccLastName == "" || ccNumber == "" || ccMonth == "" || ccYear == "" || ccCvv == "" {
+			return fmt.Errorf("CC_FIRST_NAME, CC_LAST_NAME, CC_NUMBER, CC_MONTH, CC_YEAR, CC_CVV are not set")
+		}
+
 		inputIndex := 0
 		inputs := []string{ccFirstName, ccLastName, ccNumber, ccMonth, ccYear, ccCvv}
 
