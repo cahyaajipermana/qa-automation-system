@@ -382,6 +382,13 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 					runner.logError(result.ID, time.Since(startTime), logMsg)
 					isFailed = true
 				}
+			} else if feature.Name == "iFrame Slot Machine Games" {
+				if err := runner.iFrameSlotMachineGames(site.Name, feature.Name, browserType, result.ID, db); err != nil {
+					logMsg = fmt.Sprintf("%v", err)
+					log.Printf("Warning: Failed to test iFrame slot machine games for Result ID %d: %v", result.ID, logMsg)
+					runner.logError(result.ID, time.Since(startTime), logMsg)
+					isFailed = true
+				}
 			} else {
 				// the rest function has not done yet
 				logMsg = fmt.Sprintf("%s feature has not been implemented yet", feature.Name)
@@ -394,7 +401,10 @@ func RunTestInBackground(siteID, deviceID, featureID uint, email, password strin
 
 			if isFailed {
 				// Take failed screenshot
-				runner.TakeStepScreenshot(db, result.ID, browserType, fmt.Sprintf("Failed to test %s", feature.Name))
+				if logMsg == "" {
+					logMsg = fmt.Sprintf("Failed to test %s", feature.Name)
+				}
+				runner.TakeStepScreenshot(db, result.ID, browserType, logMsg)
 				return
 			}
 
@@ -694,6 +704,7 @@ func (r *BrowserStackRunner) SendingMessageToChat(siteName string) error {
 	return nil
 }
 
+// Chat Functionality
 func (r *BrowserStackRunner) ChatFunctionality(db *gorm.DB, site models.Site, device models.Device, feature models.Feature, browserType string, resultID uint, startTime time.Time) error {
 	// Navigate to chat page
 	log.Printf("Navigating to chat page using %s...", browserType)
@@ -767,6 +778,7 @@ func (r *BrowserStackRunner) ChatFunctionality(db *gorm.DB, site models.Site, de
 	return nil
 }
 
+// Scrolling Home Page
 func (r *BrowserStackRunner) ScrollingHomePage(db *gorm.DB, site models.Site, device models.Device, feature models.Feature, browserType string, resultID uint, startTime time.Time) error {
 	wheelCssSelector := ""
 
@@ -816,6 +828,7 @@ func (r *BrowserStackRunner) ScrollingHomePage(db *gorm.DB, site models.Site, de
 	return nil
 }
 
+// Pause Video
 func (r *BrowserStackRunner) pauseVideo(db *gorm.DB, resultID uint, browserType string, startTime time.Time) error {
 	videoElement, err := r.driver.FindElement(selenium.ByCSSSelector, ".video-player")
 	if err != nil {
@@ -832,6 +845,7 @@ func (r *BrowserStackRunner) pauseVideo(db *gorm.DB, resultID uint, browserType 
 	return nil
 }
 
+// Play Video
 func (r *BrowserStackRunner) playVideo(db *gorm.DB, resultID uint, browserType string, startTime time.Time) error {
 	playVideoButton, err := r.driver.FindElement(selenium.ByCSSSelector, ".play-button-overlay")
 	if err != nil {
@@ -848,6 +862,7 @@ func (r *BrowserStackRunner) playVideo(db *gorm.DB, resultID uint, browserType s
 	return nil
 }
 
+// Simulate Scroll Event
 func simulateScrollEvent(siteName string, deltaY int, wheelCssSelector string) string {
 	if siteName == "senti.live" {
 		return fmt.Sprintf(`
@@ -867,6 +882,7 @@ func simulateScrollEvent(siteName string, deltaY int, wheelCssSelector string) s
 	`, deltaY)
 }
 
+// Simulate Wheel Event
 func simulateWheelEvent(deltaY int, wheelCssSelector string) string {
 	return fmt.Sprintf(`
 		let wheelEvent = new WheelEvent('wheel', {
@@ -877,18 +893,18 @@ func simulateWheelEvent(deltaY int, wheelCssSelector string) string {
 	`, deltaY, wheelCssSelector)
 }
 
-// Age verfication
+// Age Verfication
 func (r *BrowserStackRunner) AgeVerification(siteName string, featureName string, browserType string, resultID uint, db *gorm.DB) error {
 	if r.driver == nil {
 		return fmt.Errorf("driver not initialized")
 	}
 
 	if siteName == "senti.live" {
-		
+		return fmt.Errorf("%s test has not been implemented yet for %s", featureName, siteName)
 	}
 
 	if siteName == "hothinge.com" {
-		
+		return fmt.Errorf("%s testhas not been implemented yet for %s", featureName, siteName)
 	}
 
 	if siteName == "shorts.senti.live" || siteName == "viblys.com" {
@@ -992,11 +1008,11 @@ func (r *BrowserStackRunner) PremiumSubscription(siteName string, featureName st
 	}
 
 	if siteName == "senti.live" {
-		
+		return fmt.Errorf("%s test has not been implemented yet for %s", featureName, siteName)
 	}
 
 	if siteName == "hothinge.com" {
-		
+		return fmt.Errorf("%s test has not been implemented yet for %s", featureName, siteName)
 	}
 
 	if siteName == "shorts.senti.live" || siteName == "viblys.com" {
@@ -1090,6 +1106,66 @@ func (r *BrowserStackRunner) PremiumSubscription(siteName string, featureName st
 	return nil
 }
 
+// iFrame Slot Machine Games
+func (r *BrowserStackRunner) iFrameSlotMachineGames(siteName string, featureName string, browserType string, resultID uint, db *gorm.DB) error {
+	if r.driver == nil {
+		return fmt.Errorf("driver not initialized")
+	}
+
+	if siteName == "senti.live" {
+		return fmt.Errorf("%s test has not been implemented yet for %s", featureName, siteName)
+	}
+
+	if siteName == "hothinge.com" {
+		return fmt.Errorf("%s test has not been implemented yet for %s", featureName, siteName)
+	}
+
+	if siteName == "shorts.senti.live" || siteName == "viblys.com" {
+		// Navigate to store page
+		if err := r.driver.Get("https://" + siteName + "/store"); err != nil {
+			return fmt.Errorf("failed to navigate to store page: %v", err)
+		}
+
+		// Wait for the page to load
+		time.Sleep(5 * time.Second)
+
+		// Take screenshot of store page
+		r.TakeStepScreenshot(db, resultID, browserType, "Store Page")
+
+		// Click Open Game Button
+		openButtons, err := r.driver.FindElements(selenium.ByCSSSelector, ".open-button")
+		if err != nil {
+			return fmt.Errorf("Failed to find open game button: %v", err)
+		}
+
+		if len(openButtons) == 0 {
+			return fmt.Errorf("No buttons found on the store page.")
+		}
+
+		// Open the second button (currently Birdy Trick games)
+		openButton := openButtons[1]
+
+		if openButton == nil {
+			return fmt.Errorf("Failed to find open game button")
+		}
+
+		if err := openButton.Click(); err != nil {
+			// If error on click button, navigate to birdy trick game page
+			if err := r.driver.Get("https://" + siteName + "/game/birdy-trick"); err != nil {
+				return fmt.Errorf("Failed to navigate to birdy trick game page: %v", err)
+			}
+		}
+
+		time.Sleep(10 * time.Second)
+
+		// Take screenshot of iframe slot machine games
+		r.TakeStepScreenshot(db, resultID, browserType, featureName)
+	}
+
+	return nil
+}
+
+// Take Step Screenshot
 func (r *BrowserStackRunner) TakeStepScreenshot(db *gorm.DB, resultID uint, browserType string, featureName string) {
 	// Take screenshot
 	stepScreenshot, err := r.TakeScreenshot()
